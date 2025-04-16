@@ -17,6 +17,7 @@ import java.util.DoubleSummaryStatistics;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.summarizingDouble;
 import static org.paumard.intro.Data.DIR;
 
 public class A_StreamCitiesTemperature {
@@ -77,8 +78,7 @@ public class A_StreamCitiesTemperature {
             begin = Instant.now();
             var stats = inMemoryFile.elements(ELEMENT_LAYOUT)
                   .parallel()
-                  .map(segment -> (float) TEMPERATURE_VARHANDLE.get(segment, 0L))
-                  .collect(Collectors.summarizingDouble(d -> d));
+                  .collect(summarizingDouble(segment -> (float) TEMPERATURE_VARHANDLE.get(segment, 0L)));
             end = Instant.now();
 
             System.out.println("Average temperature = " + stats.getAverage());
@@ -91,7 +91,7 @@ public class A_StreamCitiesTemperature {
                   .collect(
                         Collectors.groupingBy(
                               segment -> (int) CITY_ID_VARHANDLE.get(segment, 0L),
-                              Collectors.summarizingDouble(segment -> (float) TEMPERATURE_VARHANDLE.get(segment, 0L))
+                              summarizingDouble(segment -> (float) TEMPERATURE_VARHANDLE.get(segment, 0L))
                         )
                   );
 
