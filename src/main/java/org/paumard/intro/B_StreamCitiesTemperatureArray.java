@@ -14,12 +14,10 @@ import java.time.Instant;
 import java.util.DoubleSummaryStatistics;
 import java.util.HashMap;
 
-import static org.paumard.intro.Data.DIR;
-
 public class B_StreamCitiesTemperatureArray {
 
     private static final Path CITIES_PATH =
-          DIR.resolve("measurements-rearranged-1000M.bin");
+          Data.DIR.resolve("measurements-rearranged-1000M.bin");
 
     // Reading City ID, Temperature count and temperatures
     // 10_id-array-of-temperaturess-sutructure

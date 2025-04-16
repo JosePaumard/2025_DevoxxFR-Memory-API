@@ -18,12 +18,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.summarizingDouble;
-import static org.paumard.intro.Data.DIR;
 
 public class A_StreamCitiesTemperature {
 
     private static final Path CITIES_PATH =
-          DIR.resolve("measurements-1000M.bin");
+          Data.DIR.resolve("measurements-1000M.bin");
 
     // Reading City ID and Temperature
     // 08_stream-of-cities-temperatures

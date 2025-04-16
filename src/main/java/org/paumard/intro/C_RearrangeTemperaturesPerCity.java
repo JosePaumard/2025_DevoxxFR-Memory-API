@@ -9,13 +9,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static org.paumard.intro.Data.DIR;
 
 public class C_RearrangeTemperaturesPerCity {
 
@@ -65,9 +63,9 @@ public class C_RearrangeTemperaturesPerCity {
     public static final long MAX_TEMPERATURE_COUNT = 100_000L;
 
     public static final Path FILES_MEASUREMENTS_BIN =
-          DIR.resolve("files", "measurements-1000M.bin");
+          Data.DIR.resolve("files", "measurements-1000M.bin");
     public static final Path FILES_REARRANGED_BIN =
-          DIR.resolve("files", "measurements-rearranged-A.bin");
+          Data.DIR.resolve("files", "measurements-rearranged-A.bin");
 
     public static void main(String... args) throws IOException {
 
@@ -117,11 +115,11 @@ public class C_RearrangeTemperaturesPerCity {
             // ID N_TEMPERATURES T1 T2 ... TN
             // segments of 100k temperatures
             // 12.5M temperatures per city
-            class TemperaturesSegment {
+            class TemperatureSegmentBuilder {
                 private final MemorySegment segment;
                 private long index;
 
-                TemperaturesSegment() {
+                TemperatureSegmentBuilder() {
                     this.segment = arena.allocate(TEMPERATURE_LAYOUT, MAX_TEMPERATURE_COUNT);
                     this.index = 0L;
                 }
@@ -153,18 +151,18 @@ public class C_RearrangeTemperaturesPerCity {
 
             begin = Instant.now();
             System.out.println("Creating segments");
-            var cities = new HashMap<Integer, Deque<TemperaturesSegment>>();
+            var cities = new HashMap<Integer, Deque<TemperatureSegmentBuilder>>();
             inMemoryFile.elements(ELEMENT_LAYOUT)
                     .forEach(segment -> {
                         var cityID = (int) CITY_ID_VARHANDLE.get(segment, 0L);
                         var temperature = (float) TEMPERATURE_VARHANDLE.get(segment, 0L);
-                        cities.computeIfAbsent(cityID, _ -> new LinkedList<>());
-                        var temperaturesSegment = cities.get(cityID).peek();
-                        if (temperaturesSegment == null || temperaturesSegment.isFull()) {
-                            temperaturesSegment = new TemperaturesSegment();
-                            cities.get(cityID).push(temperaturesSegment);
+                        cities.computeIfAbsent(cityID, _ -> new ArrayDeque<>());
+                        var builder = cities.get(cityID).peek();
+                        if (builder == null || builder.isFull()) {
+                            builder = new TemperatureSegmentBuilder();
+                            cities.get(cityID).push(builder);
                         }
-                        temperaturesSegment.add(temperature);
+                        builder.add(temperature);
                     });
             end = Instant.now();
             System.out.println("Computed in " + Duration.between(begin, end).toMillis() + "ms");
@@ -172,7 +170,7 @@ public class C_RearrangeTemperaturesPerCity {
             // ID N_TEMPERATURES T1 T2 ... TN
             begin = Instant.now();
             var temperaturesSize = cities.values()
-                    .stream().flatMapToLong(segments -> segments.stream().mapToLong(TemperaturesSegment::segmentSize))
+                    .stream().flatMapToLong(builders -> builders.stream().mapToLong(TemperatureSegmentBuilder::segmentSize))
                     .sum();
             var finalSegmentByteSize = cities.size() * (4L + 8L) + temperaturesSize * 4L;
             var finalSegment = arena.allocate(finalSegmentByteSize);
@@ -182,7 +180,7 @@ public class C_RearrangeTemperaturesPerCity {
             for (var entry : cities.entrySet()) {
                 var cityTemperatureCountSegment = finalSegment.asSlice(finalSegmentOffset, CITY_TEMPERATURE_COUNT_LAYOUT);
                 int cityID = entry.getKey();
-                long temperatureCount = entry.getValue().stream().mapToLong(TemperaturesSegment::count).sum();
+                long temperatureCount = entry.getValue().stream().mapToLong(TemperatureSegmentBuilder::count).sum();
                 WRITE_CITY_ID_VARHANDLE.set(cityTemperatureCountSegment, 0L, cityID);
                 WRITE_TEMPERATURE_COUNT_VARHANDLE.set(cityTemperatureCountSegment, 0L, temperatureCount);
                 finalSegmentOffset += cityTemperatureCountSegment.byteSize();
